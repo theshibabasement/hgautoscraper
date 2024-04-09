@@ -1,0 +1,67 @@
+import csv
+import tkinter as tk
+from tkinter import filedialog
+import psycopg2
+
+# Função para extrair a marca, modelo e detalhe do link
+def extrair_dados_link(link):
+    partes = link.split("/")
+    marca = partes[4]
+    modelo = partes[5]
+    detalhe = partes[6]
+    return marca, modelo, detalhe
+
+# Criar uma janela principal (oculta)
+root = tk.Tk()
+root.withdraw()
+
+# Abrir a caixa de diálogo para selecionar o arquivo CSV
+arquivo_csv = filedialog.askopenfilename(title="Selecione o arquivo CSV", filetypes=[("Arquivos CSV", "*.csv")])
+
+# Lista para armazenar os dados filtrados
+dados_filtrados = []
+
+# Abrir o arquivo CSV e ler as URLs
+with open(arquivo_csv, "r") as file:
+    reader = csv.reader(file)
+    for row in reader:
+        url = row[0].strip()
+        if url.startswith("https://hgautos.com.br/carros"):
+            marca, modelo, detalhe = extrair_dados_link(url)
+            dados_filtrados.append((marca, modelo, detalhe, url, None, None))
+
+# Configurações de conexão com o banco de dados PostgreSQL
+db_url = "postgres://postgres:Senha123!@easy.limemarketing.online:9001/chatbots-solucoes-globais"
+
+# Estabelecer a conexão com o banco de dados
+conn = psycopg2.connect(db_url)
+cursor = conn.cursor()
+
+# Criar a tabela "produtos" se ela não existir
+create_table_query = """
+    CREATE TABLE IF NOT EXISTS produtos (
+        id SERIAL PRIMARY KEY,
+        marca VARCHAR(255),
+        modelo VARCHAR(255),
+        detalhe VARCHAR(255),
+        link VARCHAR(255),
+        valor DECIMAL(10, 2),
+        valor_desconto DECIMAL(10, 2)
+    )
+"""
+cursor.execute(create_table_query)
+conn.commit()
+
+# Inserir os dados filtrados na tabela "produtos"
+insert_query = """
+    INSERT INTO produtos (marca, modelo, detalhe, link, valor, valor_desconto)
+    VALUES (%s, %s, %s, %s, %s, %s)
+"""
+cursor.executemany(insert_query, dados_filtrados)
+conn.commit()
+
+# Fechar a conexão com o banco de dados
+cursor.close()
+conn.close()
+
+print("Dados inseridos na base de dados PostgreSQL com sucesso!")
