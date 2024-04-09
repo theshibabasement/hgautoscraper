@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
+import os
 
 def is_valid_url(url):
     parsed = urlparse(url)
@@ -33,7 +34,11 @@ def generate_sitemap(url):
 
     xml_content += '</urlset>'
 
-    with open('sitemap.xml', 'w') as file:
+    # Cria a pasta "temp/sitemap/" se ela não existir
+    os.makedirs('temp/sitemap', exist_ok=True)
+
+    # Salva o arquivo sitemap.xml na pasta "temp/sitemap/"
+    with open('temp/sitemap/sitemap.xml', 'w') as file:
         file.write(xml_content)
 
     print("Sitemap gerado com sucesso!")

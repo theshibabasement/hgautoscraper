@@ -1,6 +1,4 @@
-import csv
-import tkinter as tk
-from tkinter import filedialog
+import xml.etree.ElementTree as ET
 import psycopg2
 
 # Função para extrair a marca, modelo e detalhe do link
@@ -11,24 +9,22 @@ def extrair_dados_link(link):
     detalhe = partes[6]
     return marca, modelo, detalhe
 
-# Criar uma janela principal (oculta)
-root = tk.Tk()
-root.withdraw()
-
-# Abrir a caixa de diálogo para selecionar o arquivo CSV
-arquivo_csv = filedialog.askopenfilename(title="Selecione o arquivo CSV", filetypes=[("Arquivos CSV", "*.csv")])
+# Caminho do arquivo sitemap.xml
+sitemap_xml = "temp/sitemap/sitemap.xml"
 
 # Lista para armazenar os dados filtrados
 dados_filtrados = []
 
-# Abrir o arquivo CSV e ler as URLs
-with open(arquivo_csv, "r") as file:
-    reader = csv.reader(file)
-    for row in reader:
-        url = row[0].strip()
-        if url.startswith("https://hgautos.com.br/carros"):
-            marca, modelo, detalhe = extrair_dados_link(url)
-            dados_filtrados.append((marca, modelo, detalhe, url, None, None))
+# Analisar o arquivo sitemap.xml
+tree = ET.parse(sitemap_xml)
+root = tree.getroot()
+
+# Extrair as URLs do sitemap.xml
+for url in root.findall("{http://www.sitemaps.org/schemas/sitemap/0.9}url"):
+    loc = url.find("{http://www.sitemaps.org/schemas/sitemap/0.9}loc").text
+    if loc.startswith("https://hgautos.com.br/carros"):
+        marca, modelo, detalhe = extrair_dados_link(loc)
+        dados_filtrados.append((marca, modelo, detalhe, loc, None, None))
 
 # Configurações de conexão com o banco de dados PostgreSQL
 db_url = "postgres://postgres:Senha123!@easy.limemarketing.online:9001/chatbots-solucoes-globais"
@@ -44,7 +40,7 @@ create_table_query = """
         marca VARCHAR(255),
         modelo VARCHAR(255),
         detalhe VARCHAR(255),
-        link VARCHAR(255),
+        link VARCHAR(255) UNIQUE,
         valor DECIMAL(10, 2),
         valor_desconto DECIMAL(10, 2)
     )
@@ -56,6 +52,7 @@ conn.commit()
 insert_query = """
     INSERT INTO produtos (marca, modelo, detalhe, link, valor, valor_desconto)
     VALUES (%s, %s, %s, %s, %s, %s)
+    ON CONFLICT (link) DO NOTHING
 """
 cursor.executemany(insert_query, dados_filtrados)
 conn.commit()
